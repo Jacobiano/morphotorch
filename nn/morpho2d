@@ -28,7 +28,7 @@ def erosion2D(image,SE):
    return -dilation2D(-image, torch.flip(SE,[5,4])) #B,C,W1,W2,h,w
 
 class DilationLayer(nn.Module):
-    """ DilationLayer """
+    """ Dilation Layer """
     def __init__(self, input_dim,kernel_size):
         super().__init__()
         struct_element = torch.Tensor(1,input_dim,1,1,kernel_size[0],kernel_size[1]) #B,C,W1,W2,h,w
@@ -41,7 +41,7 @@ class DilationLayer(nn.Module):
         return dilation2D(x,self.struct_element)
     
 class ErosionLayer(nn.Module):
-    """ ErosionLayer """
+    """ Erosion Layer """
     def __init__(self, input_dim,kernel_size):
         super().__init__()
         struct_element = torch.Tensor(1,input_dim,1,1,kernel_size[0],kernel_size[1]) #B,C,W1,W2,h,w
@@ -52,6 +52,52 @@ class ErosionLayer(nn.Module):
         
     def forward(self, x):
         return erosion2D(x,self.struct_element)
+
+class OpeningLayer(nn.Module):
+    """ Opening Layer """
+    def __init__(self, input_dim,kernel_size):
+        super().__init__()
+        struct_element = torch.Tensor(1,input_dim,1,1,kernel_size[0],kernel_size[1]) #B,C,W1,W2,h,w
+        self.struct_element = nn.Parameter(struct_element)
+
+        # initialize structuring element
+        nn.init.uniform_(self.struct_element,a=-1.,b=0.) # weight init
+        
+    def forward(self, x):
+        return dilation2D(erosion2D(x,self.struct_element),self.struct_element)
+    
+class ClosingLayer(nn.Module):
+    """ Closing Layer """
+    def __init__(self, input_dim,kernel_size):
+        super().__init__()
+        struct_element = torch.Tensor(1,input_dim,1,1,kernel_size[0],kernel_size[1]) #B,C,W1,W2,h,w
+        self.struct_element = nn.Parameter(struct_element)
+
+        # initialize structuring element
+        nn.init.uniform_(self.struct_element,a=-1.,b=0.) # weight init
+        
+    def forward(self, x):
+        return erosion2D(dilation2D(x,self.struct_element),self.struct_element)
+
+class ToggleMappingLayer(nn.Module):
+    """ ToggleMapping Layer """
+    def __init__(self, input_dim,kernel_size):
+        super().__init__()
+        struct_element = torch.Tensor(1,input_dim,1,1,kernel_size[0],kernel_size[1]) #B,C,W1,W2,h,w
+        struct_element2 = torch.Tensor(1,input_dim,1,1,kernel_size[0],kernel_size[1]) #B,C,W1,W2,h,w
+        self.struct_element = nn.Parameter(struct_element)
+        self.struct_element2 = nn.Parameter(struct_element2)
+
+        # initialize structuring element
+        nn.init.uniform_(self.struct_element,a=-1.,b=0.) # weight init
+        nn.init.uniform_(self.struct_element2,a=-1.,b=0.) # weight init
+        
+    def forward(self, x):
+        d=dilation2D(x,self.struct_element)
+        e=erosion2D(x,self.struct_element2)
+        return torch.where(torch.abs(d-x) > torch.abs(x-e), e, d)
+    
+
 
 
 
