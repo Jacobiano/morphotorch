@@ -5,27 +5,71 @@ import lietorch
 #!pip install lietorch
 from lietorch.generic import grayscale_dilation_2d
 
+#I think that is an slow implementation based on channelwise dilation.
+
+def erosion2D(image,SE):
+  return -lietorch.generic.grayscale_dilation_2d(-image, torch.flip(SE,[1,0]))
+
+def dilation2D(image,SE):
+  return lietorch.generic.grayscale_dilation_2d(image, SE)
 
 
-def erosion2D(input,SE):
-    return -lietorch.generic.grayscale_dilation_2d(-input, torch.flip(SE,[1,0]))
-
-def dilation2D(input,SE):
-    return lietorch.generic.grayscale_dilation_2d(input, SE)
-
-def opening_pytorch(input,SE):
-  temp=erosion2D(input,SE)
-  return dilation2D(temp, SE)
-
-
+channels_erosion2D=torch.vmap(erosion2D,in_dims=2,out_dims=2)
+channels_dilation2D=torch.vmap(dilation2D,in_dims=2,out_dims=2)
 
 class Dilation2DLayer(nn.Module):
     """ Channelwise Dilation2D """
     def __init__(self, channels, kernel_size):
         super().__init__()
-        weights = torch.Tensor(channels,kernel_size[0], kernel_size[1])
+        weights = torch.Tensor(kernel_size[0], kernel_size[1],channels)
         self.weights = nn.Parameter(weights)  # nn.Parameter is a Tensor that's a module parameter.
         nn.init.uniform_(self.weights, a=-1.0, b=0.0) # # initialize weights and biases
 
     def forward(self, x):
-        return dilation2D(x, self.weights)
+      result = torch.zeros([x.shape[0],x.shape[1],x.shape[2],x.shape[3]])
+      for i in range(x.shape[0]):
+        result[i,:,:,:]=channels_dilation2D(x[i,:,:,:], self.weights)
+      return result
+
+class Erosion2DLayer(nn.Module):
+    """ Channelwise Erosion2D """
+    def __init__(self, channels, kernel_size):
+        super().__init__()
+        weights = torch.Tensor(kernel_size[0], kernel_size[1],channels)
+        self.weights = nn.Parameter(weights)  # nn.Parameter is a Tensor that's a module parameter.
+        nn.init.uniform_(self.weights, a=-1.0, b=0.0) # # initialize weights and biases
+
+    def forward(self, x):
+      result = torch.zeros([x.shape[0],x.shape[1],x.shape[2],x.shape[3]])
+      for i in range(x.shape[0]):
+        result[i,:,:,:]=channels_erosion2D(x[i,:,:,:], self.weights)
+      return result
+
+class Opening2DLayer(nn.Module):
+    """ Channelwise Opening2D """
+    def __init__(self, channels, kernel_size):
+        super().__init__()
+        weights = torch.Tensor(kernel_size[0], kernel_size[1],channels)
+        self.weights = nn.Parameter(weights)  # nn.Parameter is a Tensor that's a module parameter.
+        nn.init.uniform_(self.weights, a=-1.0, b=0.0) # # initialize weights and biases
+
+    def forward(self, x):
+      result = torch.zeros([x.shape[0],x.shape[1],x.shape[2],x.shape[3]])
+      for i in range(x.shape[0]):
+        result[i,:,:,:]=channels_dilation2D(channels_erosion2D(x[i,:,:,:], self.weights),self.weights)
+      return result
+
+
+class Closing2DLayer(nn.Module):
+    """ Channelwise Closing2D """
+    def __init__(self, channels, kernel_size):
+        super().__init__()
+        weights = torch.Tensor(kernel_size[0], kernel_size[1],channels)
+        self.weights = nn.Parameter(weights)  # nn.Parameter is a Tensor that's a module parameter.
+        nn.init.uniform_(self.weights, a=-1.0, b=0.0) # # initialize weights and biases
+
+    def forward(self, x):
+      result = torch.zeros([x.shape[0],x.shape[1],x.shape[2],x.shape[3]])
+      for i in range(x.shape[0]):
+        result[i,:,:,:]=channels_erosion2D(channels_dilation2D(x[i,:,:,:], self.weights),self.weights)
+      return result
