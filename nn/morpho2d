@@ -1,0 +1,31 @@
+
+import torch
+import torch.nn as nn
+import lietorch 
+#!pip install lietorch
+from lietorch.generic import grayscale_dilation_2d
+
+
+
+def erosion2D(input,SE):
+    return -lietorch.generic.grayscale_dilation_2d(-input, torch.flip(SE,[1,0]))
+
+def dilation2D(input,SE):
+    return lietorch.generic.grayscale_dilation_2d(input, SE)
+
+def opening_pytorch(input,SE):
+  temp=erosion2D(input,SE)
+  return dilation2D(temp, SE)
+
+
+
+class Dilation2DLayer(nn.Module):
+    """ Channelwise Dilation2D """
+    def __init__(self, channels, kernel_size):
+        super().__init__()
+        weights = torch.Tensor(channels,kernel_size[0], kernel_size[1])
+        self.weights = nn.Parameter(weights)  # nn.Parameter is a Tensor that's a module parameter.
+        nn.init.uniform_(self.weights, a=-1.0, b=0.0) # # initialize weights and biases
+
+    def forward(self, x):
+        return dilation2D(x, self.weights)
