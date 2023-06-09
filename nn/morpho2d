@@ -97,10 +97,31 @@ class ToggleMappingLayer(nn.Module):
         e=erosion2D(x,self.struct_element2)
         return torch.where(torch.abs(d-x) > torch.abs(x-e), e, d)
     
-
-
-
-
+class ReconstructionLayer(nn.Module):
+    """ Reconstruction Layer """
+    #Geodesic dilation is applied in the second term.
+    def __init__(self,steps=10):
+        super().__init__()
+        self.steps=steps
+        
+    def forward(self, marker, x):
+      if self.steps==0:
+        xlast=x
+        flag=0
+        i=0
+        while flag==0:
+          i=i+1
+          x=torch.nn.functional.max_pool2d(x, (3,3), stride=(1,1), padding=1, dilation=1, ceil_mode=False, return_indices=False)
+          x=torch.minimum(x, marker)
+          flag=torch.equal(x, xlast)
+          xlast=x
+        #print('Number of Geodesic Dilations',i)
+        return x
+      else:
+        for i in range(self.steps):
+          x=torch.nn.functional.max_pool2d(x, (3,3), stride=(1,1), padding=1, dilation=1, ceil_mode=False, return_indices=False)
+          x=torch.minimum(x, marker)
+        return x
 # def erosion2D(image,SE):
 #   return -lietorch.generic.grayscale_dilation_2d(-image, torch.flip(SE,[1,0]))
 # def dilation2D(image,SE):
